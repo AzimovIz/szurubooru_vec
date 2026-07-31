@@ -114,6 +114,7 @@
 5. [Autotagging service](#autotagging-service)
 
    - [Tagging an image](#tagging-an-image)
+   - [Tagging an image by URL](#tagging-an-image-by-url)
 
 
 
@@ -3020,14 +3021,17 @@ Searching for posts with `re\:zero` will show posts tagged with `re:zero`.
 
 Unlike the rest of this document, the autotagging endpoint is **not** part of
 the core szurubooru REST API served by the Falcon app — it's served directly
-by the `embedder` microservice, reached through a same-origin nginx proxy
-passthrough at `/tagging` (see the top-level README). It exists purely to
-support the client's upload form ("Autotagging" checkbox) and:
+by the `embedder` microservice, reached through same-origin nginx proxy
+passthroughs at `/tagging` and `/tag-by-url` (see the top-level README). It
+exists purely to support the client's upload form ("Autotagging" checkbox)
+and:
 
 - is not versioned or namespaced under `/api`
-- takes plain `multipart/form-data`, not JSON
+- takes plain `multipart/form-data` or a small JSON body, not the usual
+  szurubooru request format
 - requires no authentication (it never touches the database or user data —
-  only the uploaded image bytes)
+  only the image bytes, which it either receives directly or fetches itself
+  from a client-supplied URL)
 
 ## Tagging an image
 - **Request**
@@ -3064,3 +3068,54 @@ support the client's upload form ("Autotagging" checkbox) and:
     safety value (`rating:safe` → Safe, `rating:questionable` → Sketchy,
     `rating:explicit` → Unsafe) and merging the rest into the tags field
     without clobbering tags the user already typed in.
+
+## Tagging an image by URL
+- **Request**
+
+    `POST /tag-by-url`
+
+- **Input**
+
+    ```json5
+    {
+        "url": <url>
+    }
+    ```
+
+- **Output**
+
+    Same as [tagging an image](#tagging-an-image):
+
+    ```json5
+    {
+        "tags": [<tag-name>, <tag-name>, ...]
+    }
+    ```
+
+- **Errors**
+
+    - Returns HTTP 400 with `{"error": <message>}` if the downloaded content
+      isn't a decodable image.
+    - Returns HTTP 502 with `{"error": <message>}` if the URL couldn't be
+      downloaded at all (unsupported scheme, DNS failure, non-public address,
+      timeout, non-2xx response, oversized response, etc.)
+
+- **Description**
+
+    Used for "Add URL" uploads, which have no local file for the browser to
+    hand over directly. The `embedder` service downloads `<url>` itself and
+    tags the result. To work around sites that are flaky or picky about the
+    client identity (missing/generic `User-Agent`, unusual `Referer`, no
+    HTTP/2 support, anycast edge nodes that intermittently drop the TLS
+    handshake, etc.), it races **three concurrent download attempts** with
+    different browser-like `User-Agent` strings against the URL; the first
+    one to succeed is used and the rest are cancelled. If all three fail, the
+    request fails with a 502.
+
+    As a safety measure against SSRF (this endpoint requires no
+    authentication and will otherwise fetch whatever URL it's given), the
+    target host is resolved and rejected if it maps to a private, loopback,
+    link-local, multicast or otherwise non-public address — including on
+    each redirect hop, not just the original URL. This is a best-effort
+    check (resolved once up front per request), not a defense against DNS
+    rebinding.
