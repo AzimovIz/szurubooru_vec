@@ -21,7 +21,7 @@ services:
       #POSTGRES_DB: defaults to same as POSTGRES_USER
       #POSTGRES_PORT: 5432
       #LOG_SQL: 0 (1 for verbose SQL logs)
-      THREADS:
+      THREADS: ${THREADS:-4}
       QDRANT_ENDPOINT: http://qdrant:6333
       EMBEDDER_ENDPOINT: http://embedder:8000
     volumes:
