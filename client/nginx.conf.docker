@@ -58,6 +58,15 @@ http {
             error_page 500 502 503 504 @badproxy;
         }
 
+        location /tagging {
+            tcp_nodelay on;
+            client_max_body_size 1073741824;
+
+            proxy_pass http://embedder:8000/tagging;
+
+            error_page 500 502 503 504 @badproxy;
+        }
+
         location /data/ {
             rewrite ^/data/(.*) /$1 break;
             root /data;

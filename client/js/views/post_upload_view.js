@@ -8,6 +8,12 @@ const FileDropperControl = require("../controls/file_dropper_control.js");
 const template = views.getTemplate("post-upload");
 const rowTemplate = views.getTemplate("post-upload-row");
 
+const RATING_TO_SAFETY = {
+    "rating:safe": "safe",
+    "rating:questionable": "sketchy",
+    "rating:explicit": "unsafe",
+};
+
 function _mimeTypeToPostType(mimeType) {
     return (
         {
@@ -184,6 +190,9 @@ class PostUploadView extends events.EventTarget {
         this._formNode.addEventListener("submit", (e) =>
             this._evtFormSubmit(e)
         );
+        this._autotaggingCheckboxNode.addEventListener("change", (e) =>
+            this._evtAutotaggingChange(e)
+        );
         this._formNode.classList.add("inactive");
     }
 
@@ -234,6 +243,9 @@ class PostUploadView extends events.EventTarget {
             uploadable.addEventListener("finish", (e) =>
                 this._updateThumbnailNode(e.detail.uploadable)
             );
+            if (this._autotaggingCheckboxNode.checked) {
+                this._autotagUploadable(uploadable);
+            }
         }
         if (duplicatesFound) {
             let message = null;
@@ -266,6 +278,9 @@ class PostUploadView extends events.EventTarget {
 
     updateUploadable(uploadable) {
         uploadable.lookalikesConfirmed = true;
+        // re-rendering the row replaces its DOM, so anything the user
+        // already typed into the tags field has to be carried over first
+        this._syncTagsFromDom(uploadable);
         this._renderRowNode(uploadable);
     }
 
@@ -275,6 +290,84 @@ class PostUploadView extends events.EventTarget {
 
     _evtUrlsAdded(e) {
         this.addUploadables(e.detail.urls.map((url) => new Url(url)));
+    }
+
+    _evtAutotaggingChange(e) {
+        if (!e.target.checked) {
+            return;
+        }
+        for (let uploadable of this._uploadables) {
+            this._autotagUploadable(uploadable);
+        }
+    }
+
+    _syncTagsFromDom(uploadable) {
+        if (!uploadable.rowNode) {
+            return;
+        }
+        const tagsInputNode = uploadable.rowNode.querySelector(
+            ".tags [name=tags]"
+        );
+        if (tagsInputNode) {
+            uploadable.tags = tagsInputNode.value
+                .split(/\s+/)
+                .filter((tagName) => tagName);
+        }
+    }
+
+    _autotagUploadable(uploadable) {
+        // URL-based uploads have no local bytes to send for tagging until
+        // the server actually downloads them
+        if (!(uploadable instanceof File) || uploadable.autotagRequested) {
+            return;
+        }
+        uploadable.autotagRequested = true;
+
+        const rowNode = uploadable.rowNode;
+        const formData = new FormData();
+        formData.append("file", uploadable.file);
+
+        fetch("/tagging", { method: "POST", body: formData })
+            .then((response) => response.json())
+            .then((data) => this._applyAutotagResults(rowNode, data.tags || []))
+            .catch((error) => {
+                this.showError(
+                    "Autotagging failed: " + error.message,
+                    uploadable
+                );
+            });
+    }
+
+    _applyAutotagResults(rowNode, tags) {
+        const regularTags = [];
+        let safety = null;
+        for (let tag of tags) {
+            if (RATING_TO_SAFETY[tag]) {
+                safety = RATING_TO_SAFETY[tag];
+            } else {
+                regularTags.push(tag);
+            }
+        }
+
+        if (safety) {
+            const safetyNode = rowNode.querySelector(
+                `.safety input[value=${safety}]`
+            );
+            if (safetyNode) {
+                safetyNode.checked = true;
+            }
+        }
+
+        const tagsInputNode = rowNode.querySelector(".tags [name=tags]");
+        if (tagsInputNode && regularTags.length) {
+            const existingTags = tagsInputNode.value
+                .split(/\s+/)
+                .filter((tagName) => tagName);
+            const mergedTags = existingTags.concat(
+                regularTags.filter((tagName) => !existingTags.includes(tagName))
+            );
+            tagsInputNode.value = mergedTags.join(" ");
+        }
     }
 
     _evtCancelButtonClick(e) {
@@ -306,7 +399,7 @@ class PostUploadView extends events.EventTarget {
             uploadable.anonymous = true;
         }
 
-        uploadable.tags = [];
+        this._syncTagsFromDom(uploadable);
         uploadable.relations = [];
         for (let [i, lookalike] of uploadable.lookalikes.entries()) {
             let lookalikeNode = rowNode.querySelector(
@@ -314,7 +407,9 @@ class PostUploadView extends events.EventTarget {
             );
             if (lookalikeNode.querySelector("[name=copy-tags]").checked) {
                 uploadable.tags = uploadable.tags.concat(
-                    lookalike.post.tagNames
+                    lookalike.post.tagNames.filter(
+                        (tagName) => !uploadable.tags.includes(tagName)
+                    )
                 );
             }
             if (lookalikeNode.querySelector("[name=add-relation]").checked) {
@@ -439,6 +534,10 @@ class PostUploadView extends events.EventTarget {
         return this._hostNode.querySelector(
             "form [name=pause-remain-on-error]"
         );
+    }
+
+    get _autotaggingCheckboxNode() {
+        return this._hostNode.querySelector("form [name=autotagging]");
     }
 
     get _submitButtonNode() {

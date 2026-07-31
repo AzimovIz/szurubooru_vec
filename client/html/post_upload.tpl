@@ -29,6 +29,14 @@
                 }) %>
             </span>
 
+            <span class='autotagging'>
+                <%= ctx.makeCheckbox({
+                    text: 'Autotagging',
+                    name: 'autotagging',
+                    checked: false,
+                }) %>
+            </span>
+
             <input type='button' value='Cancel' class='cancel'/>
         </div>
 
