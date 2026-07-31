@@ -316,20 +316,38 @@ class PostUploadView extends events.EventTarget {
     }
 
     _autotagUploadable(uploadable) {
-        // URL-based uploads have no local bytes to send for tagging until
-        // the server actually downloads them
-        if (!(uploadable instanceof File) || uploadable.autotagRequested) {
+        if (uploadable.autotagRequested) {
+            return;
+        }
+
+        let request;
+        if (uploadable instanceof File) {
+            const formData = new FormData();
+            formData.append("file", uploadable.file);
+            request = fetch("/tagging", { method: "POST", body: formData });
+        } else if (uploadable instanceof Url) {
+            // no local bytes for URL-based uploads - the embedder downloads
+            // the URL itself (racing a few identities in parallel, since
+            // some sites are picky/flaky about who's asking)
+            request = fetch("/tag-by-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: uploadable.url }),
+            });
+        } else {
             return;
         }
         uploadable.autotagRequested = true;
 
         const rowNode = uploadable.rowNode;
-        const formData = new FormData();
-        formData.append("file", uploadable.file);
-
-        fetch("/tagging", { method: "POST", body: formData })
+        request
             .then((response) => response.json())
-            .then((data) => this._applyAutotagResults(rowNode, data.tags || []))
+            .then((data) => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                this._applyAutotagResults(rowNode, data.tags || []);
+            })
             .catch((error) => {
                 this.showError(
                     "Autotagging failed: " + error.message,

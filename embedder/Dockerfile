@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
         -r requirements.txt
 
-COPY app.py tagging_utils.py deep_danbooru_model.py .
+COPY app.py downloader.py tagging_utils.py deep_danbooru_model.py .
 
 EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

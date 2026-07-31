@@ -5,9 +5,11 @@ import torch
 from fastapi import FastAPI, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
+from pydantic import BaseModel
 from starlette.requests import Request
 from transformers import AutoImageProcessor, AutoModel
 
+import downloader
 import tagging_utils
 
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +59,29 @@ async def embed(request: Request):
 @app.post("/tagging")
 async def tagging(file: UploadFile):
     content = await file.read()
+    try:
+        image = Image.open(io.BytesIO(content))
+    except Exception as ex:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Could not decode image: {ex}"},
+        )
+
+    tags = tagging_utils.predict_tags_dgb(dgb_model, image)
+    return {"tags": tags}
+
+
+class TagByUrlRequest(BaseModel):
+    url: str
+
+
+@app.post("/tag-by-url")
+async def tag_by_url(payload: TagByUrlRequest):
+    try:
+        content = await downloader.download_racing(payload.url)
+    except downloader.DownloadError as ex:
+        return JSONResponse(status_code=502, content={"error": str(ex)})
+
     try:
         image = Image.open(io.BytesIO(content))
     except Exception as ex:
