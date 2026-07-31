@@ -34,7 +34,7 @@ allow_broken_uploads: false
 
 # vector similarity search (used for the "similar posts" feature)
 qdrant:
-    endpoint: http://localhost:6333
+    endpoint: http://qdrant:6333
     collection: post-embeddings
     # cosine similarity score below which a candidate is no longer
     # considered "similar" and gets excluded from results
@@ -42,7 +42,7 @@ qdrant:
 
 # HTTP service that turns an image into an embedding vector for qdrant
 embedder:
-    endpoint: http://localhost:8000
+    endpoint: http://embedder:8000
 
 # used to send password reset e-mails
 smtp:
