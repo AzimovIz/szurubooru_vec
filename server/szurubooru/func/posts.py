@@ -695,6 +695,11 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     if update_signature:
         purge_post_signature(post)
         generate_post_signature(post, content)
+        # qdrant needs a real post id up front (unlike PostSignature, it
+        # can't rely on SQLAlchemy resolving the FK for us at flush time),
+        # so force an insert/update now to get post.post_id populated
+        db.session.add(post)
+        db.session.flush()
         purge_post_embedding(post)
         generate_post_embedding(post, content)
 
