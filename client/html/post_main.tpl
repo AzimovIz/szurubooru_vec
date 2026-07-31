@@ -52,14 +52,33 @@
     <div class='content'>
         <div class='post-container'></div>
 
-        <div class='after-mobile-controls'>
-            <% if (ctx.canCreateComments) { %>
-                <h2>Add comment</h2>
-                <div class='comment-form-container'></div>
+        <div class='after-mobile-controls post-tabs'>
+            <% if (ctx.canListComments || ctx.canCreateComments || ctx.canViewSimilarPosts) { %>
+                <nav class='tab-buttons'>
+                    <% if (ctx.canListComments || ctx.canCreateComments) { %>
+                        <a href class='tab-button comments-tab active' data-tab='comments'>Comments</a>
+                    <% } %>
+                    <% if (ctx.canViewSimilarPosts) { %>
+                        <a href class='tab-button similar-tab<%= ctx.canListComments || ctx.canCreateComments ? '' : ' active' %>' data-tab='similar'>Similar</a>
+                    <% } %>
+                </nav>
             <% } %>
 
-            <% if (ctx.canListComments) { %>
-                <div class='comments-container'></div>
+            <div class='tab-panel comments-panel<%= ctx.canListComments || ctx.canCreateComments ? ' active' : '' %>'>
+                <% if (ctx.canCreateComments) { %>
+                    <h2>Add comment</h2>
+                    <div class='comment-form-container'></div>
+                <% } %>
+
+                <% if (ctx.canListComments) { %>
+                    <div class='comments-container'></div>
+                <% } %>
+            </div>
+
+            <% if (ctx.canViewSimilarPosts) { %>
+                <div class='tab-panel similar-panel<%= ctx.canListComments || ctx.canCreateComments ? '' : ' active' %>'>
+                    <div class='similar-container'></div>
+                </div>
             <% } %>
         </div>
     </div>

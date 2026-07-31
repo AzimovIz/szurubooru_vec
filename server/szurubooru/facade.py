@@ -10,8 +10,10 @@ import sqlalchemy.orm.exc
 
 from szurubooru import api, config, db, errors, middleware, rest
 from szurubooru.func.file_uploads import purge_old_uploads
+from szurubooru.func import embeddings
 from szurubooru.func.posts import (
     update_all_md5_checksums,
+    update_all_post_embeddings,
     update_all_post_signatures,
 )
 
@@ -128,6 +130,18 @@ def purge_old_uploads_daemon() -> None:
         time.sleep(60 * 5)
 
 
+def ensure_qdrant_collection_daemon() -> None:
+    while True:
+        try:
+            embeddings.ensure_collection()
+            logging.info("Qdrant collection is ready")
+            break
+        except Exception as ex:
+            logging.warning("Waiting for Qdrant to become ready: %s", ex)
+        time.sleep(10)
+    update_all_post_embeddings()
+
+
 _live_migrations = (
     update_all_post_signatures,
     update_all_md5_checksums,
@@ -144,6 +158,9 @@ def create_app() -> Callable[[Any, Any], Any]:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
     threading.Thread(target=purge_old_uploads_daemon, daemon=True).start()
+    threading.Thread(
+        target=ensure_qdrant_collection_daemon, daemon=True
+    ).start()
 
     for migration in _live_migrations:
         threading.Thread(target=migration, daemon=False).start()

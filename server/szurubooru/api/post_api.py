@@ -284,6 +284,28 @@ def get_posts_around(
     )
 
 
+@rest.routes.get("/post/(?P<post_id>[^/]+)/similar/?")
+def get_similar_posts(
+    ctx: rest.Context, params: Dict[str, str]
+) -> rest.Response:
+    auth.verify_privilege(ctx.user, "posts:similar")
+    post = _get_post(params)
+    offset = ctx.get_param_as_int("offset", default=0, min=0)
+    limit = ctx.get_param_as_int("limit", default=20, min=1, max=100)
+    similar = posts.get_similar_posts(post, offset, limit)
+    return {
+        "offset": offset,
+        "limit": limit,
+        "results": [
+            {
+                "distance": score,
+                "post": _serialize_post(ctx, candidate),
+            }
+            for score, candidate in similar
+        ],
+    }
+
+
 @rest.routes.post("/posts/reverse-search/?")
 def get_posts_by_image(
     ctx: rest.Context, _params: Dict[str, str] = {}

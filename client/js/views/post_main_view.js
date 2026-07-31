@@ -12,6 +12,7 @@ const PostReadonlySidebarControl = require("../controls/post_readonly_sidebar_co
 const PostEditSidebarControl = require("../controls/post_edit_sidebar_control.js");
 const CommentControl = require("../controls/comment_control.js");
 const CommentListControl = require("../controls/comment_list_control.js");
+const PostSimilarControl = require("../controls/post_similar_control.js");
 
 const template = views.getTemplate("post-main");
 
@@ -57,6 +58,7 @@ class PostMainView {
         this._installSidebar(ctx);
         this._installCommentForm();
         this._installComments(ctx.post.comments);
+        this._installTabs(ctx);
 
         const showPreviousImage = () => {
             if (ctx.prevPostId) {
@@ -164,6 +166,55 @@ class PostMainView {
             commentsContainerNode,
             comments
         );
+    }
+
+    _installTabs(ctx) {
+        const tabButtonNodes = document.querySelectorAll(
+            "#content-holder .tab-buttons .tab-button"
+        );
+        if (!tabButtonNodes.length) {
+            return;
+        }
+
+        for (let tabButtonNode of tabButtonNodes) {
+            tabButtonNode.addEventListener("click", (e) => {
+                e.preventDefault();
+                this._activateTab(ctx, tabButtonNode.getAttribute("data-tab"));
+            });
+        }
+    }
+
+    _activateTab(ctx, tabName) {
+        const tabButtonNodes = document.querySelectorAll(
+            "#content-holder .tab-buttons .tab-button"
+        );
+        const tabPanelNodes = document.querySelectorAll(
+            "#content-holder .tab-panel"
+        );
+        for (let node of tabButtonNodes) {
+            node.classList.toggle(
+                "active",
+                node.getAttribute("data-tab") === tabName
+            );
+        }
+        for (let node of tabPanelNodes) {
+            node.classList.toggle(
+                "active",
+                node.classList.contains(tabName + "-panel")
+            );
+        }
+
+        if (tabName === "similar" && !this._postSimilarControl) {
+            const similarContainerNode = document.querySelector(
+                "#content-holder .similar-container"
+            );
+            if (similarContainerNode) {
+                this._postSimilarControl = new PostSimilarControl(
+                    similarContainerNode,
+                    ctx.post.id
+                );
+            }
+        }
     }
 }
 

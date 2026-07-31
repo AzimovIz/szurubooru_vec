@@ -183,6 +183,23 @@ class PostSignature(Base):
     post = sa.orm.relationship("Post", back_populates="signature")
 
 
+class PostEmbedding(Base):
+    __tablename__ = "post_embedding"
+
+    post_id = sa.Column(
+        "post_id",
+        sa.Integer,
+        sa.ForeignKey("post.id"),
+        primary_key=True,
+        nullable=False,
+        index=True,
+    )
+    model = sa.Column("model", sa.Unicode(64), nullable=False)
+    created_time = sa.Column("created_time", sa.DateTime, nullable=False)
+
+    post = sa.orm.relationship("Post", back_populates="embedding")
+
+
 class Post(Base):
     __tablename__ = "post"
 
@@ -228,6 +245,13 @@ class Post(Base):
     tags = sa.orm.relationship("Tag", backref="posts", secondary="post_tag")
     signature = sa.orm.relationship(
         "PostSignature",
+        uselist=False,
+        cascade="all, delete, delete-orphan",
+        lazy="joined",
+        back_populates="post",
+    )
+    embedding = sa.orm.relationship(
+        "PostEmbedding",
         uselist=False,
         cascade="all, delete, delete-orphan",
         lazy="joined",

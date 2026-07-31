@@ -10,6 +10,8 @@ services:
       target: development
     depends_on:
       - sql
+      - qdrant
+      - embedder
     environment:
       ## These should be the names of the dependent containers listed below,
       ## or FQDNs/IP addresses if these services are running outside of Docker
@@ -22,6 +24,8 @@ services:
       #POSTGRES_PORT: 5432
       #LOG_SQL: 0 (1 for verbose SQL logs)
       THREADS:
+      QDRANT_ENDPOINT: http://qdrant:6333
+      EMBEDDER_ENDPOINT: http://embedder:8000
     volumes:
       - "data:/data"
       - "./server/:/opt/app/"
@@ -49,6 +53,20 @@ services:
     volumes:
       - "sql:/var/lib/postgresql/data"
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - "qdrant:/qdrant/storage"
+
+  embedder:
+    build: ./embedder
+    restart: unless-stopped
+    volumes:
+      - "embedder_cache:/root/.cache/huggingface"
+
 volumes:
   data:
   sql:
+  qdrant:
+  embedder_cache:

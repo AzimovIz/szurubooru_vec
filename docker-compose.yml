@@ -8,6 +8,8 @@ services:
     image: szurubooru/server:latest
     depends_on:
       - sql
+      - qdrant
+      - embedder
     environment:
       ## These should be the names of the dependent containers listed below,
       ## or FQDNs/IP addresses if these services are running outside of Docker
@@ -20,6 +22,8 @@ services:
       #POSTGRES_PORT: 5432
       #LOG_SQL: 0 (1 for verbose SQL logs)
       THREADS:
+      QDRANT_ENDPOINT: http://qdrant:6333
+      EMBEDDER_ENDPOINT: http://embedder:8000
     volumes:
       - "${MOUNT_DATA}:/data"
       - "./server/config.yaml:/opt/app/config.yaml"
@@ -44,3 +48,15 @@ services:
       POSTGRES_PASSWORD:
     volumes:
       - "${MOUNT_SQL}:/var/lib/postgresql/data"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - "${MOUNT_QDRANT}:/qdrant/storage"
+
+  embedder:
+    build: ./embedder
+    restart: unless-stopped
+    volumes:
+      - "${MOUNT_EMBEDDER_CACHE}:/root/.cache/huggingface"

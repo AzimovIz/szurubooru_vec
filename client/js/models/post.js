@@ -205,6 +205,22 @@ class Post extends events.EventTarget {
         });
     }
 
+    static getSimilar(id, offset, limit) {
+        return api
+            .get(
+                uri.formatApiLink("post", id, "similar", {
+                    offset: offset,
+                    limit: limit,
+                })
+            )
+            .then((response) => {
+                for (let item of response.results) {
+                    item.post = Post.fromResponse(item.post);
+                }
+                return Promise.resolve(response);
+            });
+    }
+
     _savePoolPosts() {
         const difference = (a, b) => a.filter((post) => !b.hasPoolId(post.id));
 

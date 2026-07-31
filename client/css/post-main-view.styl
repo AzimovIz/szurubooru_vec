@@ -49,6 +49,27 @@
     .after-mobile-controls
         width: 100%
 
+    .post-tabs
+        .tab-buttons
+            display: flex
+            border-bottom: 1px solid rgba(0, 0, 0, 0.15)
+            margin-bottom: 1em
+            .tab-button
+                padding: 0.5em 1em
+                cursor: pointer
+                &.active
+                    border-bottom: 2px solid $main-color
+                    font-weight: bold
+        .tab-panel
+            display: none
+            &.active
+                display: block
+        .similar-guard
+            height: 1px
+        .load-more-container
+            text-align: center
+            margin: 1em 0
+
 .darktheme .post-view
     >.sidebar, >.content
         nav.buttons

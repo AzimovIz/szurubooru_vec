@@ -69,6 +69,7 @@ class PostMainController extends BasePostController {
                     canFeaturePosts: api.hasPrivilege("posts:feature"),
                     canListComments: api.hasPrivilege("comments:list"),
                     canCreateComments: api.hasPrivilege("comments:create"),
+                    canViewSimilarPosts: api.hasPrivilege("posts:similar"),
                     parameters: parameters,
                 });
 

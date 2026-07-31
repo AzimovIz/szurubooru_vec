@@ -32,6 +32,18 @@ convert:
 # allow posts to be uploaded even if some image processing errors occur
 allow_broken_uploads: false
 
+# vector similarity search (used for the "similar posts" feature)
+qdrant:
+    endpoint: http://localhost:6333
+    collection: post-embeddings
+    # cosine similarity score below which a candidate is no longer
+    # considered "similar" and gets excluded from results
+    similarity_threshold: 0.6
+
+# HTTP service that turns an image into an embedding vector for qdrant
+embedder:
+    endpoint: http://localhost:8000
+
 # used to send password reset e-mails
 smtp:
     host: # example: localhost
@@ -98,6 +110,7 @@ privileges:
     'posts:create:identified':      regular
     'posts:list':                   anonymous
     'posts:reverse_search':         regular
+    'posts:similar':                anonymous
     'posts:view':                   anonymous
     'posts:view:featured':          anonymous
     'posts:edit:content':           power

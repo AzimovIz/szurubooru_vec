@@ -41,6 +41,12 @@ def _container_config() -> Dict:
             "port": int(os.getenv("POSTGRES_PORT", 5432)),
             "db": os.getenv("POSTGRES_DB", os.getenv("POSTGRES_USER")),
         },
+        "qdrant": {
+            "endpoint": os.getenv("QDRANT_ENDPOINT", "http://qdrant:6333"),
+        },
+        "embedder": {
+            "endpoint": os.getenv("EMBEDDER_ENDPOINT", "http://embedder:8000"),
+        },
     }
 
 

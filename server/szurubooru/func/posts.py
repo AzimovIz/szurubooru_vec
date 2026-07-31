@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from szurubooru import config, db, errors, model, rest
 from szurubooru.func import (
     comments,
+    embeddings,
     files,
     image_hash,
     images,
@@ -586,6 +587,56 @@ def update_all_post_signatures() -> None:
             logger.exception(ex)
 
 
+def purge_post_embedding(post: model.Post) -> None:
+    (
+        db.session.query(model.PostEmbedding)
+        .filter(model.PostEmbedding.post_id == post.post_id)
+        .delete()
+    )
+    embeddings.delete(post.post_id)
+
+
+def generate_post_embedding(post: model.Post, content: bytes) -> None:
+    embeddings.upsert(post.post_id, content)
+    db.session.add(
+        model.PostEmbedding(
+            post=post,
+            model=embeddings.MODEL_NAME,
+            created_time=datetime.utcnow(),
+        )
+    )
+
+
+def update_all_post_embeddings() -> None:
+    posts_to_embed = (
+        db.session.query(model.Post)
+        .filter(
+            (model.Post.type == model.Post.TYPE_IMAGE)
+            | (model.Post.type == model.Post.TYPE_ANIMATION)
+        )
+        .filter(model.Post.embedding == None)  # noqa: E711
+        .order_by(model.Post.post_id.asc())
+        .all()
+    )
+    for post in posts_to_embed:
+        try:
+            generate_post_embedding(
+                post, files.get(get_post_content_path(post))
+            )
+            db.session.commit()
+            logger.info("Created Embedding - Post %d", post.post_id)
+        except Exception as ex:
+            logger.exception(ex)
+
+
+def get_similar_posts(
+    post: model.Post, offset: int, limit: int
+) -> List[Tuple[float, model.Post]]:
+    hits = embeddings.find_similar(post.post_id, offset, limit)
+    results = [(score, try_get_post_by_id(post_id)) for post_id, score in hits]
+    return [(score, candidate) for score, candidate in results if candidate]
+
+
 def update_all_md5_checksums() -> None:
     posts_to_hash = (
         db.session.query(model.Post)
@@ -644,6 +695,8 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     if update_signature:
         purge_post_signature(post)
         generate_post_signature(post, content)
+        purge_post_embedding(post)
+        generate_post_embedding(post, content)
 
     post.file_size = len(content)
     try:
@@ -805,6 +858,7 @@ def feature_post(post: model.Post, user: Optional[model.User]) -> None:
 
 def delete(post: model.Post) -> None:
     assert post
+    embeddings.delete(post.post_id)
     db.session.delete(post)
 
 
