@@ -1,8 +1,9 @@
-# szurubooru + similar post search (Qdrant)
+# szurubooru + similar post search (Qdrant) + autotagging
 
 This is a fork of [szurubooru](https://github.com/rr-/szurubooru) with added
 search for visually similar posts, backed by the
-[Qdrant](https://qdrant.tech/) vector database.
+[Qdrant](https://qdrant.tech/) vector database, plus client-side autotagging
+on upload.
 
 ## What's new
 
@@ -22,10 +23,22 @@ search for visually similar posts, backed by the
   `qdrant` is unreachable, the upload is blocked with a clear error instead of
   silently skipping the embedding.
 - **New API endpoint** — `GET /post/{id}/similar` (behind the `posts:similar`
-  privilege), with `offset`/`limit` support.
+  privilege), with `offset`/`limit` support. See
+  [doc/API.md](doc/API.md#getting-similar-posts) for details.
 - The Similar tab respects the same user settings as the main post list —
   masonry layout (`Use post flow`) and endless scroll.
-- New services in `docker-compose.yml`: `qdrant` and `embedder`.
+- **Autotagging on upload.** An "Autotagging" checkbox in the upload form runs
+  each image through a tagging model (DeepDanbooru-style) *before* it's
+  uploaded to the server, prefilling the new tags field and setting safety
+  (Safe/Sketchy/Unsafe) from the model's predicted rating tag. Tagging runs in
+  the `embedder` service, reached same-origin through an nginx proxy at
+  `/tagging` — no server-side (Falcon) changes and no CORS exposure of the raw
+  model endpoint. See [doc/API.md](doc/API.md#tagging-an-image) for the
+  request format.
+- A plain tags input field was also added to the upload form itself (it was
+  previously missing — tags could only be set after upload).
+- New services in `docker-compose.yml`: `qdrant` and `embedder` (the latter
+  now handles both embeddings and tagging).
 - Images are published to GHCR manually (`workflow_dispatch` in GitHub
   Actions), tagged with the build date (e.g. `2026.04.15`) and `latest`.
 

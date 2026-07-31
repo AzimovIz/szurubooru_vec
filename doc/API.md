@@ -46,6 +46,7 @@
         - [Getting featured post](#getting-featured-post)
         - [Featuring post](#featuring-post)
         - [Reverse image search](#reverse-image-search)
+        - [Getting similar posts](#getting-similar-posts)
     - Pool categories
         - [Listing pool categories](#listing-pool-categories)
         - [Creating pool category](#creating-pool-category)
@@ -109,6 +110,10 @@
    - [Image search result](#image-search-result)
 
 4. [Search](#search)
+
+5. [Autotagging service](#autotagging-service)
+
+   - [Tagging an image](#tagging-an-image)
 
 
 
@@ -1171,6 +1176,65 @@ data.
 - **Description**
 
     Retrieves posts that look like the input image.
+
+## Getting similar posts
+- **Request**
+
+    `GET /post/<id>/similar`
+
+- **Query parameters**
+
+    | Key      | Type    | Description                                            |
+    | -------- | ------- | ------------------------------------------------------ |
+    | `offset` | integer | (optional) result offset, defaults to `0`               |
+    | `limit`  | integer | (optional) max results, defaults to `20`, capped at `100` |
+
+- **Output**
+
+    ```json5
+    {
+        "offset": <offset>,
+        "limit": <limit>,
+        "results": [
+            {
+                "distance": <distance>,
+                "post": <post>
+            },
+            {
+                "distance": <distance>,
+                "post": <post>
+            },
+            ...
+        ]
+    }
+    ```
+
+    - `<offset>`, `<limit>`: same as in input.
+    - `<distance>`: cosine distance between the embeddings of the source and
+      candidate post, from `0` (identical) up. Lower is more similar.
+    - `<post>`: a [post resource](#post).
+
+- **Errors**
+
+    - the post does not exist
+    - privileges are too low
+
+- **Description**
+
+    Retrieves posts whose content is visually similar to the given post,
+    ordered from most to least similar. Similarity is computed from
+    precomputed image embeddings stored in a
+    [Qdrant](https://qdrant.tech/) collection (see the top-level README for
+    background), rather than tags or the perceptual hash used by reverse
+    image search / duplicate detection.
+
+    Unlike other paged listings, this endpoint has no meaningful "total"
+    count (nearest-neighbor search doesn't naturally produce one) — instead,
+    results are cut off once their similarity score drops below the
+    server-configured `qdrant.similarity_threshold`. Treat
+    `len(results) < limit` as the end of the list. Posts whose embedding
+    hasn't been computed yet (or that have since been deleted) are omitted
+    from the results.
 
 ## Listing pool categories
 - **Request**
@@ -2949,3 +3013,54 @@ Searching for posts with `re:zero` will show an error message about unknown
 named token.
 
 Searching for posts with `re\:zero` will show posts tagged with `re:zero`.
+
+
+
+# Autotagging service
+
+Unlike the rest of this document, the autotagging endpoint is **not** part of
+the core szurubooru REST API served by the Falcon app — it's served directly
+by the `embedder` microservice, reached through a same-origin nginx proxy
+passthrough at `/tagging` (see the top-level README). It exists purely to
+support the client's upload form ("Autotagging" checkbox) and:
+
+- is not versioned or namespaced under `/api`
+- takes plain `multipart/form-data`, not JSON
+- requires no authentication (it never touches the database or user data —
+  only the uploaded image bytes)
+
+## Tagging an image
+- **Request**
+
+    `POST /tagging`
+
+- **Files**
+
+    A `multipart/form-data` body with a single `file` field containing the
+    image to tag.
+
+- **Output**
+
+    ```json5
+    {
+        "tags": [<tag-name>, <tag-name>, ...]
+    }
+    ```
+
+    - `<tag-name>`: a predicted tag name, Danbooru-style (e.g. `1girl`,
+      `outdoors`). Predicted rating is included as one of `rating:safe`,
+      `rating:questionable` or `rating:explicit`.
+
+- **Errors**
+
+    Returns HTTP 400 with `{"error": <message>}` if the uploaded file isn't a
+    decodable image.
+
+- **Description**
+
+    Runs the image through a DeepDanbooru-style tagging model and returns the
+    predicted tags as a flat list, with no minimum/maximum count. The client
+    is responsible for splitting out the `rating:*` tag and mapping it to a
+    safety value (`rating:safe` → Safe, `rating:questionable` → Sketchy,
+    `rating:explicit` → Unsafe) and merging the rest into the tags field
+    without clobbering tags the user already typed in.
