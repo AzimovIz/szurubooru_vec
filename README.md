@@ -1,3 +1,40 @@
+# szurubooru + similar post search (Qdrant)
+
+This is a fork of [szurubooru](https://github.com/rr-/szurubooru) with added
+search for visually similar posts, backed by the
+[Qdrant](https://qdrant.tech/) vector database.
+
+## What's new
+
+- **"Similar" tab on the post page.** Next to comments, there's now a tab with
+  a grid of posts that are visually similar in content — embeddings are
+  computed with [DINOv2](https://github.com/facebookresearch/dinov2), rather
+  than tags or the perceptual hash used by the built-in duplicate finder on
+  upload.
+- **New `embedder` service** — a separate microservice (FastAPI + DINOv2 /
+  transformers) that computes the image vector. It runs as its own container
+  rather than inside the main server, since the server image is built on
+  Alpine and PyTorch doesn't publish wheels for it.
+- **Qdrant vector database** — stores the embeddings and looks up nearest
+  neighbors by cosine similarity, with a cutoff score
+  (`qdrant.similarity_threshold` in the config).
+- **Synchronous embedding generation** on post upload/edit — if `embedder` or
+  `qdrant` is unreachable, the upload is blocked with a clear error instead of
+  silently skipping the embedding.
+- **New API endpoint** — `GET /post/{id}/similar` (behind the `posts:similar`
+  privilege), with `offset`/`limit` support.
+- The Similar tab respects the same user settings as the main post list —
+  masonry layout (`Use post flow`) and endless scroll.
+- New services in `docker-compose.yml`: `qdrant` and `embedder`.
+- Images are published to GHCR manually (`workflow_dispatch` in GitHub
+  Actions), tagged with the build date (e.g. `2026.04.15`) and `latest`.
+
+---
+
+**The original README follows below:**
+
+---
+
 # szurubooru
 
 Szurubooru is an image board engine inspired by services such as Danbooru,
