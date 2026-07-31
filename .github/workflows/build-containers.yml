@@ -44,6 +44,7 @@ jobs:
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_ENV
           echo "date_tag=${DATE_TAG}" >> $GITHUB_ENV
           echo "build_date=${BUILD_DATE}" >> $GITHUB_ENV
+          echo "repo_url=${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_ENV
 
           echo "Image: ${IMAGE_NAME}"
           echo "Date tag: ${DATE_TAG}"
@@ -68,6 +69,7 @@ jobs:
           --build-arg BUILD_DATE=${{ env.build_date }}
           --build-arg SOURCE_COMMIT=${{ github.sha }}
           --build-arg DOCKER_REPO=${{ env.image_name }}
+          --build-arg REPO_URL=${{ env.repo_url }}
           ${{ matrix.extra_build_args }}
           -t "${{ env.image_name }}:latest"
           -t "${{ env.image_name }}:${{ env.date_tag }}"
